@@ -1,0 +1,303 @@
+import os
+import csv
+
+GLOBAL EMPLOYEE_FILE: STRING = "employees.csv"
+GLOBAL isProgramRunning: BOOL = TRUE
+GLOBAL hasProgramLoaded: BOOL = FALSE
+GLOBAL lastMenuOptionSelected: INT = 0
+GLOBAL employees: LIST = []
+GLOBAL currentEmployee: Employee = NULL
+
+CREATE CLASS Employee
+
+	id: STRING
+	name: STRING
+	propertiesSold: INT = 0
+
+	CONSTRUCTOR(id: STRING, name: STRING)
+		this.id = id
+		this.name = name
+	END CONSTRUCTOR
+
+	CREATE FUNCTION GetId(): STRING
+		RETURN this.id
+	END FUNCTION
+
+	CREATE FUNCTION GetName(): STRING
+		RETURN this.name
+	END FUNCTION
+
+	CREATE FUNCTION GetPropertiesSold(): STRING
+		RETURN this.propertiesSold
+	END FUNCTION
+
+	CREATE FUNCTION AddProperties()
+		this.propertiesSold += 1
+	END FUNCTION
+
+	CREATE FUNCTION GetCommission(): FLOAT
+		ranked = sort_employee_by_sales()
+		commission = calculate_commission(this.GetPropertiesSold())
+
+		IF this.GetId() == ranked[0].GetId() THEN
+			commission = calculate_bonus(commission)
+		END IF
+
+		RETURN commission
+	END FUNCTION
+
+END CLASS
+
+CREATE FUNCTION LoadEmployees()
+	employeesFile: FILE = OPEN(EMPLOYEE_FILE, "READ_MODE")
+	reader = CSV.reader(employeeFile)
+
+	FOR row IN reader DO
+		id = row[0]
+		name = row[1]
+		employee = NEW Employee(id, name)
+
+		employees.append(employee)
+	END FOR
+
+	employeeFile.close()
+END FUNCTION
+
+CREATE FUNCTION ShowMenu(menu: INT)
+	NewLine()
+
+	IF menu == 0 THEN
+		MainMenu()
+		lastMenuOptionSelected = 0
+	ELSE IF menu == 1 THEN
+		EmployeeMenu()
+		lastMenuOptionSelected = 1
+	ELSE IF menu == 2 THEN
+		PropertiesSoldMenu()
+		lastMenuOptionSelected = 2
+	ELSE IF menu == 3 THEN
+		RankEmployeesMenu()
+		lastMenuOptionSelected = 3
+	ELSE IF menu == 4 THEN
+		CalculateCommissionMenu()
+		lastMenuOptionSelected = 4
+	ELSE IF menu == 5 THEN
+		CalculateTotalSalesMenu()
+		lastMenuOptionSelected = 5
+	END IF
+END FUNCTION
+
+CREATE FUNCTION MainMenu()
+	PrintHeader("Main Menu")
+	PRINT("Current employee is", currentEmployee.GetName())
+	NewLine()
+
+	PRINT("1: Properties Sold")
+    	PRINT("2: Calculate commission")
+    	PRINT("3: Calculate total sales")
+    	PRINT("4: Rank employees")
+    	PRINT("5: Change employee")
+    	PRINT("6: Exit")
+
+	option = INPUT("Select an option: ")
+
+    	IF option == "1" THEN
+		ShowMenu(2)
+    	ELSE IF option == "2" THEN
+		ShowMenu(4)
+   	elif option == "4" THEN
+		ShowMenu(3)
+    	elif option == "5" THEN
+        	ShowMenu(1)
+    	elif option == "3" THEN
+        	ShowMenu(5)
+    	elif option == "6" THEN
+		ExitProgram()
+END FUNCTION
+
+CREATE FUNCTION GetEmployeeById(target: STRING): Employee
+	length = LENGTH(employees)
+    	founded: BOOL = FALSE
+  	currentPos: INT = 0
+    	employee: Employee = None
+
+	WHILE founded == FALSE THEN
+		FOR i IN RANGE(length) DO
+			IF employees[i].GetId() == target THEN
+				currentPos = i
+                		founded: BOOL = TRUE
+                		employee = employees[i]
+			END IF
+		END FOR
+	END WHILE
+
+	RETURN employee
+END FUNCTION
+
+CREATE FUNCTION SortEmployeeBySales(): LIST
+	length = LENGTH(employees)
+    	swapped: BOOL = TRUE
+    	currentPass: INT = 0
+    	sortedList: LIST = []
+
+	FOR employee IN employees DO
+        	sortedList.append(employee)
+	END FOR
+
+	WHILE length > 0 AND swapped = TRUE THEN
+		swapped = TRUE
+		length = length - 1
+
+		FOR i IN RANGE(length) DO
+			IF sortedList[i].GetPropertiesSold() < sortedList[i+1].GetPropertiesSold() THEN
+                		temp = sortedList[i]
+                		sortedList[i] = sortedList[i+1]
+                		sortedList[i+1] = temp
+                		swapped = TRUE
+                		currentPass = currentPass + 1
+			END IF
+	END WHILE
+
+	RETURN sortedList
+END FUNCTION
+
+CREATE FUNCTION PropertiesSoldMenu()
+	PrintHeader("Properties Sold")
+
+	PRINT(currentEmployee.GetName(), "has sold", currentEmployee.GetPropertiesSold(), "properties")
+
+	answer = INPUT("Would you like to add properties? ")
+
+	IF answer == "yes" OR answer == "Yes" THEN
+		ammount = int(input("How many properties sold? "))
+		
+		FOR x IN RANGE(ammount) DO
+			currentEmployee.AddProperties()
+		END FOR
+
+	ELSE:
+		ShowMenu(0)
+	END IF
+END FUNCTION
+
+CREATE FUNCTION EmployeeMenu()
+	PrintHeader("Enter employee details")
+
+	FOR employee IN employees DO
+        	print(employee.GetId(), ":", employee.GetName())
+	END FOR
+
+	employeeID = input("Enter employee ID: ")
+    	employee = GetEmployeeById(employeeID)
+
+	IF employee != NULL THEN
+        	currentEmployee = employee
+        	PRINT("Current employee has been set to", currentEmployee.GetName())
+        	ShowMenu(0)
+    	ELSE
+        	HandleError("Can not find an employee with ID", employeeID)
+	END IF
+END FUNCTION
+
+CREATE FUNCTION CalculateTotalSalesMenu()
+	PrintHeader("Total Sales")
+
+	PRINT(CalculateTotalSales())
+END FUNCTION
+
+CREATE FUNCTION RankEmployeesMenu()
+	PrintHeader("Employee Rank")
+
+    	FOR employee IN sort_employee_by_sales() DO
+        	PRINT(employee.GetName(), "with", employee.GetPropertiesSold(), "properties sold")
+	END FOR
+END FUNCTION
+
+CREATE FUNCTION CalculateCommissionMenu()
+	PrintHeader("Commission")
+
+	FOR employee IN SortEmployeeBySales() DO
+		PRINT(employee.GetName() + "'s commission is £" + str(employee.GetCommission())
+	END FOR
+
+	NewLine()
+	PRINT("Total commission pay", "£" + str(calculate_total_commission_pay()))
+END FUNCTION
+
+CREATE FUNCTION CalculateTotalCommissionPay(): FLOAT
+	total: INT = 0
+
+	FOR employee IN employees DO:
+		total += employee.GetPropertiesSold()
+	END FOR
+
+	RETURN ROUND(total, 2)
+END FUNCTION
+
+
+CREATE FUNCTION CalculateTotalSales(): INT
+	total: INT = 0
+
+    	FOR employee IN employees DO
+       		total += employee.GetPropertiesSold()
+	END FOR
+
+    RETURN total
+END FUNCTION
+
+CREATE FUNCTION CalculateCommission(properties: INT): FLOAT
+    RETURN ROUND(500 * properties, 2)
+END FUNCTION
+
+CREATE FUNCTION CalculateBonus(commission: FLOAT): FLOAT
+	bonus = commission / 100 * 15
+    	commission = commission + bonus
+
+    	return ROUND(commission, 2)
+END FUNCTION
+
+CREATE FUNCTION HandleError(error: STRING)
+	ClearScreen()
+    
+    	NewLine()
+    	PRINT("Error:", error)
+    	ShowMenu(lastMenuOptionSelected)
+END FUNCTION
+
+CREATE FUNCTION ClearScreen()
+	IF os.name == "nt" THEN
+		_ = os.system("cls")
+	ELSE
+		_ = os.system("clear")
+	END IF
+END FUNCTION
+
+CREATE FUNCTION ExitProgram()
+	isProgramRunning = FALSE
+	EXIT()
+END FUNCTION
+
+CREATE FUNCTION LoadProgram()
+	PRINT("Loading...")
+    	LoadEmployees()
+
+    	PRINT(len(employees), "employee(s) loaded.")
+
+	hasProgramLoaded = TRUE
+END FUNCTION
+
+CREATE FUNCTION Program()
+	IF hasProgramLoaded == FALSE THEN
+		LoadProgram()
+	END IF
+	
+	IF currentEmployee == NULL THEN
+		ShowMenu(1)
+	ELSE
+		ShowMenu(0)
+	END IF
+END FUNCTION
+
+WHILE isProgramRunning == TRUE THEN
+	Program()
+END WHILE
